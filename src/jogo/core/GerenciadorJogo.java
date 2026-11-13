@@ -8,6 +8,7 @@ import jogo.audio.GerenciadorSom;
 import jogo.entidades.Direcao;
 import jogo.entidades.Entidade;
 import jogo.entidades.Fantasma;
+import jogo.entidades.Fantasma.Personalidade;
 import jogo.entidades.PacMan;
 import jogo.mapa.Labirinto;
 import jogo.mapa.TipoCelula;
@@ -26,6 +27,7 @@ public class GerenciadorJogo {
     private final GerenciadorSom gerenciadorSom;
 
     private int pontuacao;
+    private int recorde;
     private int vidas;
     private boolean vitoriaTocada;
     private boolean gameOver;
@@ -45,6 +47,7 @@ public class GerenciadorJogo {
 
         this.gerenciadorSom = new GerenciadorSom();
         this.pontuacao = 0;
+        this.recorde = 0;
         this.vidas = VIDAS_INICIAIS;
         this.vitoriaTocada = false;
         this.gameOver = false;
@@ -54,14 +57,26 @@ public class GerenciadorJogo {
 
     private List<Fantasma> criarFantasmas() {
         List<Fantasma> lista = new ArrayList<>();
-        // 1º: Vermelho - já inicia fora da jaula indo para a esquerda
-        lista.add(new Fantasma("Vermelho", new Color(255, 55, 55), 8, 9, 0, Direcao.ESQUERDA, labirinto, pacMan, lista));
-        // 2º: Amarelo - sai após ~2 segundos indo para a direita
-        lista.add(new Fantasma("Amarelo", new Color(255, 205, 40), 10, 9, 120, Direcao.DIREITA, labirinto, pacMan, lista));
-        // 3º: Verde - sai após ~4.5 segundos indo para a esquerda
-        lista.add(new Fantasma("Verde", new Color(45, 220, 95), 10, 8, 270, Direcao.ESQUERDA, labirinto, pacMan, lista));
-        // 4º: Azul - sai após ~7 segundos indo para a direita
-        lista.add(new Fantasma("Azul", new Color(55, 185, 255), 10, 10, 420, Direcao.DIREITA, labirinto, pacMan, lista));
+        // 1º: Vermelho (Perseguidor) - cor vibrante estilo arcade
+        lista.add(new Fantasma(
+            "Vermelho", new Color(255, 28, 28), 8, 9, 0,
+            Direcao.ESQUERDA, Personalidade.PERSEGUIDOR, labirinto, pacMan
+        ));
+        // 2º: Amarelo/Laranja (Patrulheiro) - sai após ~1.5s
+        lista.add(new Fantasma(
+            "Amarelo", new Color(255, 184, 32), 10, 9, 90,
+            Direcao.DIREITA, Personalidade.PATRULHEIRO, labirinto, pacMan
+        ));
+        // 3º: Verde (Emboscador) - sai após ~3.5s
+        lista.add(new Fantasma(
+            "Verde", new Color(0, 230, 118), 10, 8, 210,
+            Direcao.ESQUERDA, Personalidade.EMBOSCADOR, labirinto, pacMan
+        ));
+        // 4º: Azul/Ciano (Estrategista) - sai após ~5.5s
+        lista.add(new Fantasma(
+            "Azul", new Color(0, 229, 255), 10, 10, 330,
+            Direcao.DIREITA, Personalidade.ESTRATEGISTA, labirinto, pacMan
+        ));
         return lista;
     }
 
@@ -70,7 +85,6 @@ public class GerenciadorJogo {
             return;
         }
 
-        // Se o Pac-Man está executando a animação de morte, aguarda ela terminar
         if (pacMan.estaMorrendo()) {
             pacMan.mover();
             if (pacMan.animacaoMorteConcluida()) {
@@ -79,7 +93,6 @@ public class GerenciadorJogo {
             return;
         }
 
-        // Polimorfismo: atualiza o Pac-Man e todos os fantasmas uniformemente como Entidade
         for (Entidade entidade : entidades) {
             entidade.mover();
         }
@@ -147,13 +160,11 @@ public class GerenciadorJogo {
     public void desenhar(Graphics g) {
         labirinto.desenhar(g);
 
-        // Durante a animação de morte, exibe apenas o Pac-Man se desfazendo (fiel ao arcade)
         if (pacMan.estaMorrendo()) {
             pacMan.desenhar(g);
             return;
         }
 
-        // Polimorfismo: desenha Pac-Man e Fantasmas a partir da mesma lista de Entidade
         for (Entidade entidade : entidades) {
             entidade.desenhar(g);
         }
@@ -178,6 +189,9 @@ public class GerenciadorJogo {
     private void adicionarPontos(int quantidade) {
         if (quantidade > 0) {
             this.pontuacao += quantidade;
+            if (this.pontuacao > this.recorde) {
+                this.recorde = this.pontuacao;
+            }
         }
     }
 
@@ -189,6 +203,10 @@ public class GerenciadorJogo {
 
     public int getPontuacao() {
         return pontuacao;
+    }
+
+    public int getRecorde() {
+        return recorde;
     }
 
     public int getVidas() {

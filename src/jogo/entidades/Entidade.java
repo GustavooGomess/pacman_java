@@ -59,12 +59,12 @@ public abstract class Entidade {
     }
 
     public int getLinhaCentro() {
-        return (y + tamanho / 2) / Labirinto.TAMANHO_CELULA;
+        return Math.floorDiv(y + tamanho / 2, Labirinto.TAMANHO_CELULA);
     }
 
     public int getColunaCentro() {
-        int col = (x + tamanho / 2) / Labirinto.TAMANHO_CELULA;
-        return ((col % Labirinto.COLUNAS) + Labirinto.COLUNAS) % Labirinto.COLUNAS;
+        int col = Math.floorDiv(x + tamanho / 2, Labirinto.TAMANHO_CELULA);
+        return Math.floorMod(col, Labirinto.COLUNAS);
     }
 
     protected boolean estaAlinhadoNaGrade() {
@@ -84,14 +84,15 @@ public abstract class Entidade {
     }
 
     /**
-     * Teletransporta a entidade para o lado oposto caso atravesse o túnel lateral.
+     * Teletransporta a entidade para o lado oposto caso atravesse o túnel lateral,
+     * preservando o alinhamento exato com os múltiplos da grade.
      */
     protected void verificarTunelHorizontal() {
         int larguraMapa = labirinto.getLarguraPixels();
-        if (x < -tamanho / 2) {
-            x = larguraMapa - tamanho / 2;
-        } else if (x > larguraMapa - tamanho / 2) {
-            x = -tamanho / 2;
+        if (x <= -tamanho) {
+            x = larguraMapa - tamanho;
+        } else if (x >= larguraMapa) {
+            x = 0;
         }
     }
 }
