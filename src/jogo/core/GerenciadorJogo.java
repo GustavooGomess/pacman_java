@@ -67,9 +67,9 @@ public class GerenciadorJogo {
             "Amarelo", new Color(255, 184, 32), 10, 9, 90,
             Direcao.DIREITA, Personalidade.PATRULHEIRO, labirinto, pacMan
         ));
-        // 3º: Verde (Emboscador) - sai após ~3.5s
+        // 3º: Rosa (Pinky - Emboscador) - sai após ~3.5s
         lista.add(new Fantasma(
-            "Verde", new Color(0, 230, 118), 10, 8, 210,
+            "Rosa", new Color(255, 184, 255), 10, 8, 210,
             Direcao.ESQUERDA, Personalidade.EMBOSCADOR, labirinto, pacMan
         ));
         // 4º: Azul/Ciano (Estrategista) - sai após ~5.5s

@@ -8,7 +8,7 @@ public enum Direcao {
     DIREITA(1, 0, 0),
     CIMA(0, -1, 90),
     ESQUERDA(-1, 0, 180),
-    BAIXO(0, 1, 270);
+    BAIXO(0, 1, 270); 
 
     private final int dx;
     private final int dy;

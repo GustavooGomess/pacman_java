@@ -82,13 +82,19 @@ public class TelaJogo extends JPanel implements ActionListener {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
+        // 1. Cabeçalho arcade (placar e vidas)
         desenharCabecalhoArcade(g2d);
 
+        // 2. Cenário, pastilhas, Pac-Man e Fantasmas
         Graphics2D gMapa = (Graphics2D) g2d.create();
         gMapa.translate(0, ALTURA_PAINEL_SUPERIOR);
         gerenciador.desenhar(gMapa);
         gMapa.dispose();
 
+        // 3. Banner de GameOver / Vitória desenhado POR CIMA de todo o labirinto e entidades
+        desenharBannersFimDeJogo(g2d);
+
+        // 4. Scanlines CRT retro por cima de toda a tela
         desenharScanlinesRetro(g2d);
 
         g2d.dispose();
@@ -117,8 +123,9 @@ public class TelaJogo extends JPanel implements ActionListener {
         for (int i = 0; i < gerenciador.getVidas(); i++) {
             desenharMiniPacManPixel(g2d, xBaseVidas + (i * 30), 18);
         }
+    }
 
-        // Banner central de Fim de Jogo ou Vitória estilo Fliperama
+    private void desenharBannersFimDeJogo(Graphics2D g2d) {
         if (gerenciador.isGameOver()) {
             desenharBannerRetro(g2d, "GAME  OVER", "PRESSIONE [R] PARA REINICIAR", new Color(255, 50, 50));
         } else if (gerenciador.todasPastilhasColetadas()) {
@@ -141,21 +148,30 @@ public class TelaJogo extends JPanel implements ActionListener {
 
     private void desenharBannerRetro(Graphics2D g2d, String titulo, String subtitulo, Color corPrincipal) {
         int largura = gerenciador.getLabirinto().getLarguraPixels();
-        int cx = largura / 2 - 145;
-        int cy = ALTURA_PAINEL_SUPERIOR + 11 * 28 - 32;
+        int larguraBanner = 340;
+        int alturaBanner = 72;
+        int cx = (largura - larguraBanner) / 2;
+        int cy = ALTURA_PAINEL_SUPERIOR + 11 * 28 - 36;
 
-        g2d.setColor(new Color(4, 4, 16, 235));
-        g2d.fillRect(cx, cy, 290, 68);
+        // Fundo opaco para cobrir completamente o labirinto e a jaula
+        g2d.setColor(new Color(6, 6, 18, 250));
+        g2d.fillRect(cx, cy, larguraBanner, alturaBanner);
+
+        // Borda dupla estilizada
         g2d.setColor(corPrincipal);
-        g2d.drawRect(cx, cy, 290, 68);
-        g2d.drawRect(cx + 2, cy + 2, 286, 64);
+        g2d.drawRect(cx, cy, larguraBanner, alturaBanner);
+        g2d.drawRect(cx + 2, cy + 2, larguraBanner - 4, alturaBanner - 4);
 
+        // Título centralizado
         g2d.setFont(new Font("Monospaced", Font.BOLD, 20));
-        g2d.drawString(titulo, cx + 82, cy + 30);
+        int larguraTitulo = g2d.getFontMetrics().stringWidth(titulo);
+        g2d.drawString(titulo, cx + (larguraBanner - larguraTitulo) / 2, cy + 30);
 
+        // Subtítulo centralizado
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Monospaced", Font.BOLD, 12));
-        g2d.drawString(subtitulo, cx + 24, cy + 52);
+        int larguraSubtitulo = g2d.getFontMetrics().stringWidth(subtitulo);
+        g2d.drawString(subtitulo, cx + (larguraBanner - larguraSubtitulo) / 2, cy + 54);
     }
 
     /**
