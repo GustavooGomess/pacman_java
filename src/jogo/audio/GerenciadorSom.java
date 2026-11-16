@@ -15,12 +15,13 @@ public class GerenciadorSom {
     private boolean alternarWaka = false;
     private volatile boolean musicaFundoAtiva = false;
     private Thread threadMusicaFundo;
+    private volatile SourceDataLine linhaMusicaFundo;
 
     /**
      * Inicia uma trilha musical moderna (synthwave/arcade suave com melodia e linha de baixo)
      * em um único fluxo contínuo de áudio 16-bit para não travar entre as notas.
      */
-    public void iniciarMusicaAmbiente() {
+    public synchronized void iniciarMusicaAmbiente() {
         pararMusicaAmbiente();
         musicaFundoAtiva = true;
 
@@ -46,9 +47,12 @@ public class GerenciadorSom {
                 {493.88, 123.47, 200}, {440.00, 110.00, 200}, {392.00, 98.00, 400}
             };
 
-            try (SourceDataLine linha = AudioSystem.getSourceDataLine(FORMATO_16BIT)) {
-                linha.open(FORMATO_16BIT, 8820);
-                linha.start();
+            SourceDataLine linhaLocal = null;
+            try {
+                linhaLocal = AudioSystem.getSourceDataLine(FORMATO_16BIT);
+                linhaLocal.open(FORMATO_16BIT, 8820);
+                linhaLocal.start();
+                linhaMusicaFundo = linhaLocal;
 
                 double faseMelodia = 0.0;
                 double faseBaixo = 0.0;
@@ -97,12 +101,24 @@ public class GerenciadorSom {
                             escreverAmostra16Bit(buffer, i * 2, mix);
                         }
 
-                        linha.write(buffer, 0, buffer.length);
+                        if (!musicaFundoAtiva) {
+                            break;
+                        }
+                        linhaLocal.write(buffer, 0, buffer.length);
                     }
                 }
-                linha.drain();
             } catch (Exception ignored) {
                 // Ignora caso o dispositivo de áudio não esteja disponível
+            } finally {
+                if (linhaLocal != null) {
+                    try {
+                        linhaLocal.stop();
+                        linhaLocal.close();
+                    } catch (Exception ignored) {}
+                }
+                if (linhaMusicaFundo == linhaLocal) {
+                    linhaMusicaFundo = null;
+                }
             }
         });
 
@@ -110,8 +126,23 @@ public class GerenciadorSom {
         threadMusicaFundo.start();
     }
 
-    public void pararMusicaAmbiente() {
+    public synchronized void pararMusicaAmbiente() {
         musicaFundoAtiva = false;
+        if (linhaMusicaFundo != null) {
+            try {
+                linhaMusicaFundo.stop();
+                linhaMusicaFundo.flush();
+                linhaMusicaFundo.close();
+            } catch (Exception ignored) {}
+            linhaMusicaFundo = null;
+        }
+        if (threadMusicaFundo != null) {
+            threadMusicaFundo.interrupt();
+            try {
+                threadMusicaFundo.join(300);
+            } catch (InterruptedException ignored) {}
+            threadMusicaFundo = null;
+        }
     }
 
     /**
