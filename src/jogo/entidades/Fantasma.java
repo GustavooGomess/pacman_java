@@ -15,6 +15,7 @@ import jogo.mapa.Labirinto;
  * e Inteligência Artificial baseada em Busca em Largura (BFS).
  */
 public class Fantasma extends Entidade {
+    private boolean presoAposSerComido = false;
     private boolean assustado = false;
 
     public boolean isAssustado() {
@@ -23,13 +24,23 @@ public class Fantasma extends Entidade {
 
     public void setAssustado(boolean assustado) {
         this.assustado = assustado;
-        // No original, quando assustados, os fantasmas andam um pouco mais devagar
+        // CORREÇÃO: Garante que a velocidade volta para 2 quando o modo assustado acaba
         setVelocidade(assustado ? 1 : 2); 
     }
 
     public void enviarParaJaula() {
-        reiniciarPosicao();
+        // Força a coluna original, mas fixa a linha 10 (que fica totalmente DENTRO da jaula)
+        setX(colunaInicial * Labirinto.TAMANHO_CELULA);
+        setY(10 * Labirinto.TAMANHO_CELULA); 
+        
         setAssustado(false);
+        
+        this.naJaula = true;
+        this.quadrosDecorridos = 0;
+        this.direcaoAtual = Direcao.PARADO;
+        
+        // Marca que este fantasma foi comido e deve ficar preso permanentemente na jaula
+        this.presoAposSerComido = true;
     }
 
     public enum Personalidade {
@@ -144,6 +155,7 @@ public class Fantasma extends Entidade {
         this.naJaula = estaEmCoordenadaDaJaula(linhaInicial, colunaInicial);
         this.direcaoAtual = naJaula ? Direcao.PARADO : direcaoSaidaPadrao;
         this.quadrosDecorridos = 0;
+        this.presoAposSerComido = false; // Reseta a prisão ao reiniciar a partida
     }
 
     public String getNome() {
@@ -154,6 +166,11 @@ public class Fantasma extends Entidade {
     public void mover() {
         contadorAnimacaoSaia++;
         quadrosDecorridos++;
+
+        // Se foi comido pelo Pac-Man, ele fica preso na jaula permanentemente
+        if (presoAposSerComido) {
+            return; 
+        }
 
         if (naJaula && quadrosDecorridos < atrasoSaidaQuadros) {
             return;
@@ -369,7 +386,7 @@ public class Fantasma extends Entidade {
         return (d1.getDx() + d2.getDx() == 0) && (d1.getDy() + d2.getDy() == 0) && d1 != Direcao.PARADO;
     }
 
-@Override
+    @Override
     public void desenhar(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
         int p = Labirinto.ESCALA_PIXEL; 
@@ -383,10 +400,8 @@ public class Fantasma extends Entidade {
 
         String[] sprite = ((contadorAnimacaoSaia / 8) % 2 == 0) ? SPRITE_QUADRO_1 : SPRITE_QUADRO_2;
 
-        // Define a cor dependendo se está assustado ou não
         Color corAtual = cor;
         if (assustado) {
-            // Faz o fantasma alternar entre azul e branco (efeito clássico de fuga)
             boolean piscar = (contadorAnimacaoSaia / 15) % 2 == 0;
             corAtual = piscar ? Color.WHITE : new Color(33, 33, 255);
         }
@@ -401,7 +416,6 @@ public class Fantasma extends Entidade {
             }
         }
 
-        // Se estiver assustado, desenha um rostinho simples de fuga; senão, desenha os olhos normais
         if (assustado) {
             desenharRostoAssustado(g2d, baseX, baseY, p);
         } else {
@@ -416,15 +430,12 @@ public class Fantasma extends Entidade {
     }
 
     private void desenharRostoAssustado(Graphics2D g2d, int baseX, int baseY, int p) {
-        // Exemplo simples de olhinhos assustados em pixel-art (pontinhos vermelhos/rosa)
         g2d.setColor(new Color(255, 50, 50));
-        // Olho esquerdo
         g2d.fillRect(baseX + 4 * p, baseY + 4 * p, 2 * p, 2 * p);
-        // Olho direito
         g2d.fillRect(baseX + 8 * p, baseY + 4 * p, 2 * p, 2 * p);
-        // Boca ondulada simples
         g2d.fillRect(baseX + 3 * p, baseY + 9 * p, 8 * p, p);
     }
+
     private void desenharOlhoPixel(
         Graphics2D g2d,
         int baseX,
@@ -435,13 +446,11 @@ public class Fantasma extends Entidade {
         int dirY,
         int p
     ) {
-        // Esclera branca (4x5 em formato oval pixelado)
         g2d.setColor(Color.WHITE);
         g2d.fillRect(baseX + (ox + 1) * p, baseY + oy * p, 2 * p, p);
         g2d.fillRect(baseX + ox * p, baseY + (oy + 1) * p, 4 * p, 3 * p);
         g2d.fillRect(baseX + (ox + 1) * p, baseY + (oy + 4) * p, 2 * p, p);
 
-        // Pupila azul (2x2 pixels direcionada para onde o fantasma olha)
         g2d.setColor(new Color(33, 33, 255));
         int px = ox + 1 + dirX;
         int py = oy + 2 + dirY;

@@ -19,7 +19,7 @@ import jogo.mapa.TipoCelula;
  */
 public class GerenciadorJogo {
     private int temporizadorModoAssustado = 0;
-    private static final int DURACAO_MODO_ASSUSTADO = 450; // ~7.5 segundos a 60 FPS
+    private static final int DURACAO_MODO_ASSUSTADO = 200; // ~7.5 segundos a 60 FPS
 
     private static final int VIDAS_INICIAIS = 3;
 
