@@ -18,6 +18,9 @@ import jogo.mapa.TipoCelula;
  * e atualização polimórfica das entidades.
  */
 public class GerenciadorJogo {
+    private int temporizadorModoAssustado = 0;
+    private static final int DURACAO_MODO_ASSUSTADO = 450; // ~7.5 segundos a 60 FPS
+
     private static final int VIDAS_INICIAIS = 3;
 
     private final Labirinto labirinto;
@@ -81,58 +84,84 @@ public class GerenciadorJogo {
     }
 
     public void atualizar() {
-        if (gameOver || todasPastilhasColetadas()) {
-            return;
-        }
-
-        if (pacMan.estaMorrendo()) {
-            pacMan.mover();
-            if (pacMan.animacaoMorteConcluida()) {
-                processarPosMorte();
-            }
-            return;
-        }
-
-        for (Entidade entidade : entidades) {
-            entidade.mover();
-        }
-
-        verificarColetaItens();
-        verificarColisaoComFantasmas();
+    if (gameOver || todasPastilhasColetadas()) {
+        return;
     }
 
-    private void verificarColetaItens() {
-        TipoCelula itemColetado = labirinto.coletarItem(pacMan.getLinhaCentro(), pacMan.getColunaCentro());
-        if (itemColetado != TipoCelula.VAZIO) {
-            adicionarPontos(itemColetado.getPontos());
-
-            if (todasPastilhasColetadas() && !vitoriaTocada) {
-                vitoriaTocada = true;
-                gerenciadorSom.tocarVitoria();
-            } else if (itemColetado == TipoCelula.POWER_UP) {
-                gerenciadorSom.tocarPowerUp();
-            } else {
-                gerenciadorSom.tocarWaka();
+    // Gerencia o tempo do modo assustado
+    if (temporizadorModoAssustado > 0) {
+        temporizadorModoAssustado--;
+        if (temporizadorModoAssustado == 0) {
+            for (Fantasma f : fantasmas) {
+                f.setAssustado(false);
             }
+        }
+    }
+
+    if (pacMan.estaMorrendo()) {
+        pacMan.mover();
+        if (pacMan.animacaoMorteConcluida()) {
+            processarPosMorte();
+        }
+        return;
+    }
+
+    for (Entidade entidade : entidades) {
+        entidade.mover();
+    }
+
+    verificarColetaItens();
+    verificarColisaoComFantasmas();
+}
+
+    private void verificarColetaItens() {
+    TipoCelula itemColetado = labirinto.coletarItem(pacMan.getLinhaCentro(), pacMan.getColunaCentro());
+    if (itemColetado != TipoCelula.VAZIO) {
+        adicionarPontos(itemColetado.getPontos());
+
+        if (todasPastilhasColetadas() && !vitoriaTocada) {
+            vitoriaTocada = true;
+            gerenciadorSom.tocarVitoria();
+        } else if (itemColetado == TipoCelula.POWER_UP) {
+            gerenciadorSom.tocarPowerUp();
+            ativarModoAssustadoFantasmas(); // <-- ATIVA O MODO
+        } else {
+            gerenciadorSom.tocarWaka();
+        }
+    }
+}
+
+    private void ativarModoAssustadoFantasmas() {
+        temporizadorModoAssustado = DURACAO_MODO_ASSUSTADO;
+        for (Fantasma f : fantasmas) {
+            f.setAssustado(true);
         }
     }
 
     private void verificarColisaoComFantasmas() {
-        int centroPacX = pacMan.getX() + pacMan.getTamanho() / 2;
-        int centroPacY = pacMan.getY() + pacMan.getTamanho() / 2;
-        double distanciaLimite = Labirinto.TAMANHO_CELULA * 0.62;
+    int centroPacX = pacMan.getX() + pacMan.getTamanho() / 2;
+    int centroPacY = pacMan.getY() + pacMan.getTamanho() / 2;
+    double distanciaLimite = Labirinto.TAMANHO_CELULA * 0.62;
 
-        for (Fantasma fantasma : fantasmas) {
-            int centroFanX = fantasma.getX() + fantasma.getTamanho() / 2;
-            int centroFanY = fantasma.getY() + fantasma.getTamanho() / 2;
+    for (Fantasma fantasma : fantasmas) {
+        int centroFanX = fantasma.getX() + fantasma.getTamanho() / 2;
+        int centroFanY = fantasma.getY() + fantasma.getTamanho() / 2;
 
-            double distancia = Math.hypot(centroPacX - centroFanX, centroPacY - centroFanY);
-            if (distancia < distanciaLimite) {
+        double distancia = Math.hypot(centroPacX - centroFanX, centroPacY - centroFanY);
+        if (distancia < distanciaLimite) {
+            if (fantasma.isAssustado()) {
+                // Pac-Man come o fantasma!
+                fantasma.enviarParaJaula();
+                adicionarPontos(200); // Pontuação bônus por comer o fantasma
+                // gerenciadorSom.tocarComerFantasma(); // Opcional se tiver o som
+            } else {
+                // Comportamento normal: Pac-Man morre
                 iniciarSequenciaMorte();
-                break;
             }
+            break;
         }
     }
+}
 
     private void iniciarSequenciaMorte() {
         gerenciadorSom.pararMusicaAmbiente();

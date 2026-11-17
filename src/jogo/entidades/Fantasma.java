@@ -15,6 +15,22 @@ import jogo.mapa.Labirinto;
  * e Inteligência Artificial baseada em Busca em Largura (BFS).
  */
 public class Fantasma extends Entidade {
+    private boolean assustado = false;
+
+    public boolean isAssustado() {
+        return assustado;
+    }
+
+    public void setAssustado(boolean assustado) {
+        this.assustado = assustado;
+        // No original, quando assustados, os fantasmas andam um pouco mais devagar
+        setVelocidade(assustado ? 1 : 2); 
+    }
+
+    public void enviarParaJaula() {
+        reiniciarPosicao();
+        setAssustado(false);
+    }
 
     public enum Personalidade {
         PERSEGUIDOR, // Vermelho: segue o menor caminho direto até o Pac-Man
@@ -215,6 +231,11 @@ public class Fantasma extends Entidade {
             return;
         }
 
+        if (assustado) {
+            direcaoAtual = opcoesValidas.get(random.nextInt(opcoesValidas.size()));
+            return;
+        }
+
         int[] alvo = calcularCelulaAlvo(linhaAtual, colunaAtual);
 
         if (random.nextDouble() < 0.15) {
@@ -348,10 +369,10 @@ public class Fantasma extends Entidade {
         return (d1.getDx() + d2.getDx() == 0) && (d1.getDy() + d2.getDy() == 0) && d1 != Direcao.PARADO;
     }
 
-    @Override
+@Override
     public void desenhar(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-        int p = Labirinto.ESCALA_PIXEL; // 2px por "pixel" retrô
+        int p = Labirinto.ESCALA_PIXEL; 
 
         int oscilacaoJaula = (naJaula && quadrosDecorridos < atrasoSaidaQuadros)
             ? ((contadorAnimacaoSaia / 10) % 2 == 0 ? -p : p)
@@ -362,8 +383,15 @@ public class Fantasma extends Entidade {
 
         String[] sprite = ((contadorAnimacaoSaia / 8) % 2 == 0) ? SPRITE_QUADRO_1 : SPRITE_QUADRO_2;
 
-        // Desenha o corpo do fantasma pixel a pixel (grade 14x14)
-        g2d.setColor(cor);
+        // Define a cor dependendo se está assustado ou não
+        Color corAtual = cor;
+        if (assustado) {
+            // Faz o fantasma alternar entre azul e branco (efeito clássico de fuga)
+            boolean piscar = (contadorAnimacaoSaia / 15) % 2 == 0;
+            corAtual = piscar ? Color.WHITE : new Color(33, 33, 255);
+        }
+
+        g2d.setColor(corAtual);
         for (int linha = 0; linha < 14; linha++) {
             String lStr = sprite[linha];
             for (int col = 0; col < 14; col++) {
@@ -373,21 +401,30 @@ public class Fantasma extends Entidade {
             }
         }
 
-        // Brilho retrô no topo esquerdo da cabeça
-        g2d.setColor(corBrilho);
-        g2d.fillRect(baseX + 3 * p, baseY + 1 * p, 2 * p, p);
-        g2d.fillRect(baseX + 2 * p, baseY + 2 * p, p, p);
+        // Se estiver assustado, desenha um rostinho simples de fuga; senão, desenha os olhos normais
+        if (assustado) {
+            desenharRostoAssustado(g2d, baseX, baseY, p);
+        } else {
+            int dirX = direcaoAtual.getDx();
+            int dirY = direcaoAtual.getDy();
+            int olhoBaseX = 2 + dirX;
+            int olhoBaseY = 3 + (dirY < 0 ? -1 : dirY);
 
-        // Desenha os 2 olhos em pixel-art (cruz 4x5 pixels cada)
-        int dirX = direcaoAtual.getDx();
-        int dirY = direcaoAtual.getDy();
-        int olhoBaseX = 2 + dirX;
-        int olhoBaseY = 3 + (dirY < 0 ? -1 : dirY);
-
-        desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX, olhoBaseY, dirX, dirY, p);
-        desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX + 6, olhoBaseY, dirX, dirY, p);
+            desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX, olhoBaseY, dirX, dirY, p);
+            desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX + 6, olhoBaseY, dirX, dirY, p);
+        }
     }
 
+    private void desenharRostoAssustado(Graphics2D g2d, int baseX, int baseY, int p) {
+        // Exemplo simples de olhinhos assustados em pixel-art (pontinhos vermelhos/rosa)
+        g2d.setColor(new Color(255, 50, 50));
+        // Olho esquerdo
+        g2d.fillRect(baseX + 4 * p, baseY + 4 * p, 2 * p, 2 * p);
+        // Olho direito
+        g2d.fillRect(baseX + 8 * p, baseY + 4 * p, 2 * p, 2 * p);
+        // Boca ondulada simples
+        g2d.fillRect(baseX + 3 * p, baseY + 9 * p, 8 * p, p);
+    }
     private void desenharOlhoPixel(
         Graphics2D g2d,
         int baseX,
