@@ -2,7 +2,9 @@ package jogo.core;
 
 import java.io.Serializable;
 
-// Adicione o modificador 'public' aqui:
+/**
+ * Representa uma entrada individual na tabela de recordes do Arcade.
+ */
 public class HighScoreEntry implements Serializable, Comparable<HighScoreEntry> {
     private static final long serialVersionUID = 1L;
     
@@ -24,6 +26,7 @@ public class HighScoreEntry implements Serializable, Comparable<HighScoreEntry> 
 
     @Override
     public int compareTo(HighScoreEntry outro) {
+        // Ordenação decrescente: maior pontuação primeiro
         return Integer.compare(outro.pontuacao, this.pontuacao);
     }
 }

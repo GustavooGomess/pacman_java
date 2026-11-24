@@ -91,8 +91,23 @@ public class Labirinto {
         if (linha < 0 || linha >= LINHAS) {
             return true;
         }
-        int colunaNormalizada = Math.floorMod(coluna, COLUNAS);
-        return grade[linha][colunaNormalizada] == TipoCelula.PAREDE;
+
+        // Fora dos limites horizontais: o túnel só existe na linha 10
+        if (coluna < 0 || coluna >= COLUNAS) {
+            if (linha == 10) {
+                int colunaNormalizada = Math.floorMod(coluna, COLUNAS);
+                return grade[linha][colunaNormalizada] == TipoCelula.PAREDE;
+            }
+            // Em qualquer outra linha, fora do labirinto é considerado parede intransponível
+            return true;
+        }
+
+        // As bordas externas das linhas 8 e 12 (espaços fora do mapa) são tratadas como paredes
+        if ((linha == 8 || linha == 12) && (coluna < 3 || coluna > 15)) {
+            return true;
+        }
+
+        return grade[linha][coluna] == TipoCelula.PAREDE;
     }
 
     private boolean ehParedeEstrita(int linha, int coluna) {

@@ -15,32 +15,44 @@ import jogo.mapa.Labirinto;
  * e Inteligência Artificial baseada em Busca em Largura (BFS).
  */
 public class Fantasma extends Entidade {
-    private boolean presoAposSerComido = false;
+    public static final int QUADROS_RENASCIMENTO = 180; // ~3 segundos em 60 FPS
     private boolean assustado = false;
+    private boolean renascendoAposComido = false;
 
     public boolean isAssustado() {
         return assustado;
     }
 
+    public boolean isNaJaula() {
+        return naJaula;
+    }
+
     public void setAssustado(boolean assustado) {
         this.assustado = assustado;
-        // CORREÇÃO: Garante que a velocidade volta para 2 quando o modo assustado acaba
-        setVelocidade(assustado ? 1 : 2); 
+        // Mantém a velocidade em 2 pixels/frame para preservar a paridade e o alinhamento de grade (múltiplos de 28).
+        // A redução de velocidade em modo assustado é feita alternando quadros no método mover().
+        setVelocidade(2);
+        // Failsafe: caso as coordenadas estejam ímpares, alinha para múltiplos de 2
+        if (getX() % 2 != 0) {
+            setX(getX() - (getX() % 2));
+        }
+        if (getY() % 2 != 0) {
+            setY(getY() - (getY() % 2));
+        }
     }
 
     public void enviarParaJaula() {
-        // Força a coluna original, mas fixa a linha 10 (que fica totalmente DENTRO da jaula)
+        // Envia para a coluna de spawn dentro da jaula na linha 10
         setX(colunaInicial * Labirinto.TAMANHO_CELULA);
         setY(10 * Labirinto.TAMANHO_CELULA); 
         
         setAssustado(false);
         
         this.naJaula = true;
+        this.renascendoAposComido = true;
         this.quadrosDecorridos = 0;
+        this.atrasoSaidaAtual = QUADROS_RENASCIMENTO;
         this.direcaoAtual = Direcao.PARADO;
-        
-        // Marca que este fantasma foi comido e deve ficar preso permanentemente na jaula
-        this.presoAposSerComido = true;
     }
 
     public enum Personalidade {
@@ -100,6 +112,7 @@ public class Fantasma extends Entidade {
     private Direcao direcaoAtual;
     private int contadorAnimacaoSaia;
     private int quadrosDecorridos;
+    private int atrasoSaidaAtual;
     private boolean naJaula;
 
     public Fantasma(
@@ -126,6 +139,7 @@ public class Fantasma extends Entidade {
         this.linhaInicial = linhaInicial;
         this.colunaInicial = colunaInicial;
         this.atrasoSaidaQuadros = atrasoSaidaQuadros;
+        this.atrasoSaidaAtual = atrasoSaidaQuadros;
         this.direcaoSaidaPadrao = direcaoSaidaPadrao;
         this.personalidade = personalidade;
         this.alvoPacMan = alvoPacMan;
@@ -155,7 +169,8 @@ public class Fantasma extends Entidade {
         this.naJaula = estaEmCoordenadaDaJaula(linhaInicial, colunaInicial);
         this.direcaoAtual = naJaula ? Direcao.PARADO : direcaoSaidaPadrao;
         this.quadrosDecorridos = 0;
-        this.presoAposSerComido = false; // Reseta a prisão ao reiniciar a partida
+        this.atrasoSaidaAtual = atrasoSaidaQuadros;
+        this.renascendoAposComido = false;
     }
 
     public String getNome() {
@@ -167,12 +182,7 @@ public class Fantasma extends Entidade {
         contadorAnimacaoSaia++;
         quadrosDecorridos++;
 
-        // Se foi comido pelo Pac-Man, ele fica preso na jaula permanentemente
-        if (presoAposSerComido) {
-            return; 
-        }
-
-        if (naJaula && quadrosDecorridos < atrasoSaidaQuadros) {
+        if (naJaula && quadrosDecorridos < atrasoSaidaAtual) {
             return;
         }
 
@@ -183,14 +193,29 @@ public class Fantasma extends Entidade {
                 escolherDirecaoInteligente();
             }
 
-            if (!podeMoverPara(direcaoAtual)) {
+            if (!naJaula && !podeMoverPara(direcaoAtual)) {
                 escolherQualquerDirecaoLivre();
             }
         }
 
         if (direcaoAtual != Direcao.PARADO) {
-            setX(getX() + direcaoAtual.getDx() * getVelocidade());
-            setY(getY() + direcaoAtual.getDy() * getVelocidade());
+            // Em modo assustado, move apenas em quadros pares (50% da velocidade, mantendo passos de 2px pares)
+            if (assustado && (quadrosDecorridos % 2 != 0)) {
+                return;
+            }
+
+            int proxX = getX() + direcaoAtual.getDx() * getVelocidade();
+            int proxY = getY() + direcaoAtual.getDy() * getVelocidade();
+
+            // Proteção física: nunca penetra em paredes se já estiver fora da jaula
+            if (!naJaula && colideComParede(proxX, proxY)) {
+                alinharNaGrade();
+                escolherQualquerDirecaoLivre();
+                return;
+            }
+
+            setX(proxX);
+            setY(proxY);
             verificarTunelHorizontal();
         }
     }
@@ -201,6 +226,7 @@ public class Fantasma extends Entidade {
 
         if (linhaAtual <= 8) {
             naJaula = false;
+            renascendoAposComido = false;
             if (podeMoverPara(direcaoSaidaPadrao)) {
                 direcaoAtual = direcaoSaidaPadrao;
             } else {
@@ -227,7 +253,9 @@ public class Fantasma extends Entidade {
 
         for (Direcao dir : todas) {
             int proxLinha = linhaAtual + dir.getDy();
-            int proxColuna = Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS);
+            int proxColuna = (linhaAtual == 10 && proxLinha == 10)
+                ? Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS)
+                : colunaAtual + dir.getDx();
 
             if (estaEmCoordenadaDaJaula(proxLinha, proxColuna)) {
                 continue;
@@ -265,7 +293,9 @@ public class Fantasma extends Entidade {
 
         for (Direcao dir : opcoesValidas) {
             int proxLinha = linhaAtual + dir.getDy();
-            int proxColuna = Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS);
+            int proxColuna = (linhaAtual == 10 && proxLinha == 10)
+                ? Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS)
+                : colunaAtual + dir.getDx();
             int passos = calcularMenorDistanciaBFS(proxLinha, proxColuna, alvo[0], alvo[1], linhaAtual, colunaAtual);
             if (passos < menorPassos) {
                 menorPassos = passos;
@@ -343,9 +373,12 @@ public class Fantasma extends Entidade {
 
             for (Direcao d : direcoes) {
                 int nl = l + d.getDy();
-                int nc = Math.floorMod(c + d.getDx(), Labirinto.COLUNAS);
+                int nc = (nl == 10)
+                    ? Math.floorMod(c + d.getDx(), Labirinto.COLUNAS)
+                    : c + d.getDx();
 
                 if (nl >= 0 && nl < Labirinto.LINHAS
+                    && nc >= 0 && nc < Labirinto.COLUNAS
                     && !visitado[nl][nc]
                     && !estaEmCoordenadaDaJaula(nl, nc)
                     && !getLabirinto().ehParede(nl, nc)) {
@@ -360,12 +393,14 @@ public class Fantasma extends Entidade {
 
     private void escolherQualquerDirecaoLivre() {
         int linhaAtual = Math.floorDiv(getY(), Labirinto.TAMANHO_CELULA);
-        int colunaAtual = Math.floorMod(Math.floorDiv(getX(), Labirinto.TAMANHO_CELULA), Labirinto.COLUNAS);
+        int colunaAtual = Math.floorDiv(getX(), Labirinto.TAMANHO_CELULA);
 
         Direcao[] todas = {Direcao.CIMA, Direcao.ESQUERDA, Direcao.DIREITA, Direcao.BAIXO};
         for (Direcao dir : todas) {
             int proxLinha = linhaAtual + dir.getDy();
-            int proxColuna = Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS);
+            int proxColuna = (linhaAtual == 10 && proxLinha == 10)
+                ? Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS)
+                : colunaAtual + dir.getDx();
             if (!estaEmCoordenadaDaJaula(proxLinha, proxColuna) && podeMoverPara(dir)) {
                 direcaoAtual = dir;
                 return;
@@ -391,12 +426,33 @@ public class Fantasma extends Entidade {
         Graphics2D g2d = (Graphics2D) g;
         int p = Labirinto.ESCALA_PIXEL; 
 
-        int oscilacaoJaula = (naJaula && quadrosDecorridos < atrasoSaidaQuadros)
+        int oscilacaoJaula = (naJaula && quadrosDecorridos < atrasoSaidaAtual)
             ? ((contadorAnimacaoSaia / 10) % 2 == 0 ? -p : p)
             : 0;
 
         int baseX = getX();
         int baseY = getY() + oscilacaoJaula;
+
+        // Comportamento do Arcade oficial SOMENTE após ser devorado:
+        // 1. Enquanto os pontos flutuam no local da captura (~60 quadros), o fantasma some da tela.
+        // 2. Em seguida, retorna para a jaula apenas como os "olhos".
+        // 3. Nos últimos quadros antes de sair, o corpo se regenera e ele sai da jaula.
+        if (renascendoAposComido && naJaula && quadrosDecorridos < atrasoSaidaAtual) {
+            if (quadrosDecorridos < 60) {
+                return; // Fantasma sumido enquanto a pontuação brilha na tela
+            }
+            if (quadrosDecorridos < atrasoSaidaAtual - 40) {
+                // Apenas os olhos visíveis dentro da jaula
+                int dirX = direcaoAtual.getDx();
+                int dirY = direcaoAtual.getDy();
+                int olhoBaseX = 2 + dirX;
+                int olhoBaseY = 3 + (dirY < 0 ? -1 : dirY);
+
+                desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX, olhoBaseY, dirX, dirY, p);
+                desenharOlhoPixel(g2d, baseX, baseY, olhoBaseX + 6, olhoBaseY, dirX, dirY, p);
+                return;
+            }
+        }
 
         String[] sprite = ((contadorAnimacaoSaia / 8) % 2 == 0) ? SPRITE_QUADRO_1 : SPRITE_QUADRO_2;
 

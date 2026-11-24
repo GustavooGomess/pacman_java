@@ -169,6 +169,13 @@ public class GerenciadorSom {
     }
 
     /**
+     * Toca o efeito clássico de pontuação ao devorar um fantasma assustado.
+     */
+    public void tocarComerFantasma() {
+        executarAssincrono(() -> tocarSweepSuave(240, 880, 140, 0.28));
+    }
+
+    /**
      * Toca o efeito clássico descendente de morte do Pac-Man ("wah-wah-wah-plop").
      */
     public void tocarMorte() {
