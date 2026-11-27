@@ -1,251 +1,289 @@
-# Pac-Man 2D em Java
+# Pac-Man Arcade 2D em Java
 
-Projeto acadêmico desenvolvido em dupla, utilizando Java nativo, com o objetivo de aplicar e demonstrar os principais conceitos da Programação Orientada a Objetos (POO) por meio da implementação de um jogo 2D inspirado no clássico Pac-Man.
+Projeto acadêmico desenvolvido em Java nativo com foco na aplicação prática, estruturada e aprofundada dos **quatro pilares da Programação Orientada a Objetos (POO)**: **Abstração**, **Herança**, **Polimorfismo** e **Encapsulamento**.
 
-## Visão geral
+O jogo recria a experiência clássica do arcade Pac-Man utilizando exclusivamente as bibliotecas gráficas padrão da plataforma (`Java Swing` e `AWT`), incluindo inteligência artificial para os quatro fantasmas (BFS), síntese nativa de áudio procedural em tempo real, renderização autêntica em pixel-art, placar dinâmico com persistência de dados (Top 5 High Scores) e textos flutuantes de pontuação.
 
-Este projeto consiste no planejamento e desenvolvimento de um jogo 2D inspirado em Pac-Man, implementado em Java, utilizando recursos nativos da linguagem e bibliotecas gráficas padrão da plataforma, como Swing e AWT.
+---
 
-O principal objetivo acadêmico é consolidar conhecimentos de programação e, especialmente, demonstrar como os quatro pilares da Programação Orientada a Objetos podem orientar a organização de um software interativo. O jogo servirá como estudo prático de modelagem de entidades, separação de responsabilidades, controle de estado, interação entre objetos e atualização contínua de uma aplicação gráfica.
+## 🏛️ Os 4 Pilares da POO no Projeto
 
-O desenvolvimento será realizado em dupla. Como o projeto ainda está em fase de planejamento, as classes, responsabilidades e decisões arquiteturais descritas neste documento representam uma proposta inicial e poderão ser ajustadas durante a implementação.
+A arquitetura do jogo foi concebida para que cada um dos quatro pilares desempenhe um papel central no design, manutenibilidade e extensibilidade do código.
 
-## Objetivos do projeto
+```mermaid
+classDiagram
+    class Entidade {
+        <<abstract>>
+        -int x
+        -int y
+        -int velocidade
+        -int tamanho
+        -Labirinto labirinto
+        +mover()* void
+        +desenhar(Graphics g)* void
+        +getX() int
+        +getY() int
+        #setX(int) void
+        #setY(int) void
+        +getBounds() Rectangle
+    }
 
-- Desenvolver um jogo 2D funcional inspirado na mecânica clássica de Pac-Man.
-- Aplicar abstração, herança, encapsulamento e polimorfismo em uma estrutura orientada a objetos.
-- Representar o labirinto por meio de uma matriz bidimensional.
-- Implementar movimentação, colisões, pontuação e gerenciamento de vidas.
-- Utilizar Java Swing/AWT para desenhar os elementos e receber entradas do jogador.
-- Praticar organização de código, divisão de responsabilidades e trabalho colaborativo.
+    class PacMan {
+        -Direcao direcaoAtual
+        -Direcao proximaDirecao
+        -int quadroBoca
+        -boolean morrendo
+        +mover() void
+        +desenhar(Graphics g) void
+        +setProximaDirecao(Direcao) void
+    }
 
-## Conceitos de Programação Orientada a Objetos
+    class Fantasma {
+        -String nome
+        -Color corOriginal
+        -Personalidade personalidade
+        -boolean assustado
+        -boolean naJaula
+        -boolean renascendoAposComido
+        +mover() void
+        +desenhar(Graphics g) void
+        -calcularProximoPassoBFS() Direcao
+    }
 
-A POO será o principal fundamento da arquitetura do projeto. A proposta é representar os elementos do jogo como objetos que possuem estado e comportamento, evitando concentrar toda a lógica em uma única classe.
+    class GerenciadorJogo {
+        -Labirinto labirinto
+        -PacMan pacMan
+        -List~Fantasma~ fantasmas
+        -List~Entidade~ entidades
+        -List~HighScoreEntry~ listaHighScores
+        +atualizar() void
+        +desenhar(Graphics g) void
+    }
+
+    class Labirinto {
+        -TipoCelula[][] grade
+        -int pastilhasRestantes
+        +ehParede(int, int) boolean
+        +coletarItem(int, int) TipoCelula
+        +desenhar(Graphics g) void
+    }
+
+    Entidade <|-- PacMan : Herança
+    Entidade <|-- Fantasma : Herança
+    GerenciadorJogo o-- Entidade : Polimorfismo (List~Entidade~)
+    GerenciadorJogo *-- Labirinto : Encapsulamento
+```
+
+---
 
 ### 1. Abstração
 
-A abstração será aplicada por meio de uma classe-base que represente as características comuns às entidades que participam do jogo.
+A **Abstração** consiste em isolar os detalhes essenciais de uma entidade ou conceito, omitindo particularidades irrelevantes para o contexto geral e estabelecendo contratos bem definidos.
 
-Uma possível classe abstrata `Entidade` poderá reunir atributos compartilhados, como:
+#### Aplicação no Projeto:
+1. **Classe Abstrata `Entidade` (`jogo.entidades.Entidade`)**:
+   - Modela qualquer elemento dinâmico móvel no labirinto.
+   - Centraliza o controle de coordenadas na tela (`x`, `y`), dimensões (`tamanho`), velocidade, alinhamento com a grade do labirinto (`isAlinhadoNaGrade`), caixa de colisão (`getBounds()`) e cálculo de linha/coluna central.
+   - Define dois métodos puramente abstratos que estabelecem o contrato operacional obrigatório para qualquer personagem do jogo:
+     ```java
+     public abstract void mover();
+     public abstract void desenhar(Graphics g);
+     ```
+   - O `GerenciadorJogo` manipula as entidades conhecendo apenas essa abstração, sem precisar saber se a entidade é controlada por teclado ou por inteligência artificial.
 
-- posição no cenário (`x` e `y`);
-- dimensões ou tamanho do elemento;
-- velocidade de movimentação;
-- métodos comuns para atualização e desenho.
+2. **Tipos Abstratos de Dados (Enums `Direcao` e `TipoCelula`)**:
+   - `Direcao`: Abstrai os vetores de movimento (`dx`, `dy`) e o ângulo de rotação da boca (`anguloBase`), eliminando números mágicos e cálculos manuais de trigonometria espalhados pelo código.
+   - `TipoCelula`: Abstrai o significado físico e as regras de pontuação de cada ladrilho da grade (`PAREDE`, `VAZIO`, `PASTILHA`, `POWER_UP`, `PORTA_CASA_FANTASMAS`), associando cada célula a seus respectivos pontos (`getPontos()`).
 
-A classe não precisará representar um personagem específico. Sua finalidade será definir uma estrutura comum e estabelecer comportamentos que as subclasses deverão implementar.
-
-Exemplo conceitual:
-
-```java
-public abstract class Entidade {
-    private int x;
-    private int y;
-    private int velocidade;
-
-    public abstract void mover();
-    public abstract void desenhar(Graphics g);
-
-    // Getters e setters para os atributos, conforme necessário.
-}
-```
-
-Assim, detalhes específicos de cada personagem ficam nas classes especializadas, enquanto a classe-base expressa apenas o que é comum a todas as entidades.
+---
 
 ### 2. Herança
 
-A herança permitirá reutilizar a estrutura definida em `Entidade` e especializar seu comportamento nas classes dos personagens.
+A **Herança** promove o reuso de código e a extensão de funcionalidades, permitindo que classes filhas (subclasses) herdem atributos e métodos de uma classe ancestral (superclasse), especializando seus comportamentos.
 
-A partir da classe-base, poderão ser criadas classes como:
+#### Aplicação no Projeto:
+A superclasse `Entidade` serve como base direta para duas especializações concretas:
 
-- **`PacMan`**: representa o personagem controlado pelo jogador. Poderá armazenar a direção atual, processar comandos do teclado e consumir itens do labirinto.
-- **`Fantasma`**: representa os inimigos. Poderá conter informações próprias de perseguição, direção e estratégia de movimentação.
+1. **`PacMan extends Entidade` (`jogo.entidades.PacMan`)**:
+   - **Reaproveitamento**: Herda toda a física de movimentação contínua, bounding box de colisão e referência ao `Labirinto`.
+   - **Especialização**:
+     - Introduz controle de entrada do jogador com suporte a buffer de comando (`proximaDirecao`), permitindo viradas suaves nas esquinas antes do alinhamento completo.
+     - Adiciona animação procedural de abertura e fechamento da boca (sprites matriciais 14x14).
+     - Gerencia estados específicos de ciclo de vida, como a animação de morte com dissipação circular.
 
-Exemplo conceitual:
+2. **`Fantasma extends Entidade` (`jogo.entidades.Fantasma`)**:
+   - **Reaproveitamento**: Utiliza os mesmos mecanismos de posicionamento, velocidade e colisão com paredes herdados de `Entidade`.
+   - **Especialização**:
+     - Agrega quatro personalidades distintas (`Personalidade.PERSEGUIDOR`, `PATRULHEIRO`, `EMBOSCADOR`, `ESTRATEGISTA`) com alvos customizados.
+     - Implementa o algoritmo de **Busca em Largura (BFS)** para navegação inteligente e desvio de obstáculos na grade.
+     - Implementa a máquina de estados dos fantasmas: **Perseguição**, **Dispersão**, **Assustado** (modo vulnerável acionado pela super-pastilha), **Comido/Olhos** (retorno célere à jaula) e rotina de **Renascimento Temporizado** com liberação gradual.
 
-```java
-public class PacMan extends Entidade {
-    @Override
-    public void mover() {
-        // Movimentação controlada pelas entradas do jogador.
-    }
+---
 
-    @Override
-    public void desenhar(Graphics g) {
-        // Renderização específica do Pac-Man.
-    }
-}
+### 3. Polimorfismo
 
-public class Fantasma extends Entidade {
-    @Override
-    public void mover() {
-        // Lógica de movimentação do fantasma.
-    }
+O **Polimorfismo** permite que objetos de diferentes classes derivadas de uma mesma hierarquia respondam a uma mesma mensagem ou chamada de método de maneiras distintas, decididas dinamicamente em tempo de execução (*Dynamic Method Dispatch*).
 
-    @Override
-    public void desenhar(Graphics g) {
-        // Renderização específica do fantasma.
-    }
-}
-```
+#### Aplicação no Projeto:
 
-Com essa estrutura, as subclasses aproveitam os atributos e o contrato definidos pela classe-base, mas implementam suas próprias regras. Isso reduz duplicação e facilita a inclusão de novos tipos de entidades.
+1. **Polimorfismo de Inclusão e Despacho Dinâmico (`List<Entidade>`)**:
+   - No `GerenciadorJogo`, tanto a instância de `PacMan` quanto as quatro instâncias de `Fantasma` são armazenadas em uma lista polimórfica comum:
+     ```java
+     private final List<Entidade> entidades;
+     // Inicialização:
+     this.entidades = new ArrayList<>();
+     this.entidades.add(pacMan);
+     this.entidades.addAll(fantasmas);
+     ```
+   - Durante o **Game Loop** (`atualizar()`), o motor do jogo executa a movimentação de todas as entidades de forma completamente polimórfica:
+     ```java
+     for (Entidade entidade : entidades) {
+         entidade.mover(); // Chamada polimórfica!
+     }
+     ```
+     *Em tempo de execução, a JVM resolve dinamicamente qual implementação de `mover()` invocar:*
+     - Para o `PacMan`: processa o comando do teclado, alinha à grade e atualiza a rotação do sprite.
+     - Para o `Fantasma`: executa a IA de rastreamento de nós, decide bifurcações e transita entre os modos de fuga/caça.
 
-### 3. Encapsulamento
+2. **Polimorfismo na Renderização Gráfica (`desenhar`)**:
+   - O método de pintura delega o desenho à lista genérica:
+     ```java
+     for (Entidade entidade : entidades) {
+         entidade.desenhar(g); // Chamada polimórfica!
+     }
+     ```
+     Cada entidade desenha a si mesma com sua própria representação gráfica (o Pac-Man desenha sua boca animada em amarelo, e os fantasmas desenham seus corpos ondulados em pixel-art com suas respectivas cores ou em azul quando vulneráveis).
 
-O encapsulamento será utilizado para proteger o estado interno dos objetos e controlar como seus dados poderão ser consultados ou modificados.
+3. **Sobrescrita de Métodos (`@Override`)**:
+   - Implementação obrigatória e especializada de `mover()` e `desenhar(Graphics g)` em `PacMan` e `Fantasma`.
+   - Na classe `HighScoreEntry`, sobrescreve o método `compareTo(HighScoreEntry outro)` da interface `Comparable<HighScoreEntry>` para permitir a ordenação decrescente natural de recordes na tabela de pontuações:
+     ```java
+     @Override
+     public int compareTo(HighScoreEntry outro) {
+         return Integer.compare(outro.pontuacao, this.pontuacao);
+     }
+     ```
+   - Em `TelaJogo`, o método `paintComponent(Graphics g)` da biblioteca Swing (`JPanel`) é sobrescrito para acoplar a renderização customizada do jogo ao pipeline de renderização nativo do sistema operacional.
 
-Atributos como coordenadas, velocidade, pontuação e quantidade de vidas deverão ter visibilidade restrita — normalmente `private` — e ser acessados por métodos públicos quando necessário.
+---
 
-Por exemplo:
+### 4. Encapsulamento
 
-- `PacMan` controla sua própria posição e direção, sem permitir alterações arbitrárias por outras classes.
-- Uma classe responsável pelo estado da partida, como `GerenciadorJogo`, controla a pontuação e as vidas por meio de operações específicas.
-- A matriz do labirinto não deve ser modificada livremente por qualquer componente; alterações, como remover uma pastilha, devem ocorrer por métodos que validem a operação.
+O **Encapsulamento** visa proteger o estado interno dos objetos contra acessos indevidos e modificações diretas descontroladas, garantindo que o estado de um componente só possa ser alterado por meio de interfaces públicas e regras bem definidas (*Information Hiding*).
 
-Exemplo conceitual:
+#### Aplicação no Projeto:
 
-```java
-public class EstadoJogo {
-    private int pontuacao;
-    private int vidas;
+1. **Visibilidade Restrita e Modificadores de Acesso**:
+   - Todos os atributos de estado em `Entidade`, `PacMan`, `Fantasma`, `Labirinto` e `GerenciadorJogo` são declarados como `private` ou `protected`.
+   - Modificadores `protected` em `Entidade` (como `setX()`, `setY()`, `setVelocidade()`) permitem que apenas as subclasses diretas (`PacMan`, `Fantasma`) alterem as variáveis internas durante seus cálculos de movimento, mantendo-as inacessíveis para o restante da aplicação.
 
-    public int getPontuacao() {
-        return pontuacao;
-    }
+2. **Encapsulamento da Matriz do Labirinto (`Labirinto.java`)**:
+   - A matriz de células `TipoCelula[][] grade` é puramente privada.
+   - Nenhuma classe externa tem acesso direto de escrita ou leitura na matriz. Toda interação é intermediada por métodos de negócio que aplicam validações rígidas:
+     - `ehParede(linha, coluna)`: Trata limites do mapa, curvas e o túnel lateral com teletransporte (linha 10).
+     - `coletarItem(linha, coluna)`: Verifica a existência de pastilha/power-up, atualiza a célula para `VAZIO`, decrementa o contador de pastilhas e retorna o tipo coletado para processamento de pontuação.
 
-    public int getVidas() {
-        return vidas;
-    }
+3. **Encapsulamento e Cópia Defensiva da Tabela de Recordes (`GerenciadorJogo.java`)**:
+   - A lista `listaHighScores` é privada e serializada em arquivo binário (`highscores.dat`).
+   - O método de consulta protege a integridade dos dados retornando uma coleção imutável:
+     ```java
+     public List<HighScoreEntry> getListaHighScores() {
+         return Collections.unmodifiableList(listaHighScores);
+     }
+     ```
+     Isso impede que componentes externos (como a tela de interface `TelaJogo`) adicionem, removam ou reordenem os recordes sem passar pela validação de negócio de `registrarJogador()`.
+   - Todas as regras do Top 5 (manutenção de até 5 colocações, substituição por pontuação superior ou empate na 5ª posição e reset) ficam totalmente encapsuladas na lógica interna do gerenciador.
 
-    public void adicionarPontos(int quantidade) {
-        if (quantidade > 0) {
-            pontuacao += quantidade;
-        }
-    }
+---
 
-    public void perderVida() {
-        if (vidas > 0) {
-            vidas--;
-        }
-    }
-}
-```
+## 🎮 Funcionalidades do Jogo
 
-Dessa forma, as regras de alteração ficam centralizadas, ajudando a preservar a consistência do estado da partida e reduzindo dependências entre as classes.
+- **Mecânica Clássica de Arcade**:
+  - Labirinto autêntico com túnel de teletransporte lateral contínuo.
+  - Coleta de pastilhas normais (10 pts) e super pastilhas (50 pts).
+  - Modo assustado com fantasmas piscando em azul e pontuações exponenciais ao serem comidos (**+200, +400, +800, +1600 pts**).
+  - Textos flutuantes exibindo os pontos ganhos exatamente onde o fantasma foi capturado.
+- **Inteligência Artificial Autêntica dos 4 Fantasmas**:
+  - **Blinky (Vermelho)**: Perseguidor agressivo mirando diretamente no Pac-Man.
+  - **Pinky (Rosa)**: Emboscador mirando quatro células à frente da direção do jogador.
+  - **Inky (Azul)**: Estrategista com cálculo vetorial cruzado entre Blinky e Pac-Man.
+  - **Clyde (Amarelo)**: Patrulheiro que persegue à distância e dispersa para seu canto quando muito próximo.
+  - Rotina de jaula com liberação escalonada no início da partida e retorno em modo "apenas olhos" após serem devorados, renascendo após 3 segundos.
+- **Sistema de Recordes (Top 5 High Scores)**:
+  - Tela inicial com campo para inserção do nome do jogador.
+  - O jogo só começa após a digitação do nome e clique em "Iniciar Jogo".
+  - Ranking dinâmico persistido em arquivo (`highscores.dat`).
+  - Suporta até 5 colocações (inclusive pontuações zero), substituindo a menor pontuação quando o limite é excedido ou em caso de empate.
+  - Botão na interface para **Resetar Ranking** a qualquer momento.
+- **Áudio Sintetizado Nativo**:
+  - Efeitos sonoros gerados dinamicamente via `javax.sound.sampled` (waka-waka, sirene contínua, alerta de modo assustado, som de fantasma devorado, morte e vitória), dispensando arquivos externos de áudio `.wav` ou `.mp3`.
 
-### 4. Polimorfismo
+---
 
-O polimorfismo permitirá tratar diferentes personagens de maneira uniforme por meio do tipo comum `Entidade`, mantendo comportamentos específicos em cada implementação.
-
-Por exemplo, uma coleção de entidades poderá conter o Pac-Man e vários fantasmas. Durante a atualização do jogo, cada objeto responderá à chamada de `mover()` de acordo com sua própria implementação. O mesmo princípio será aplicado à renderização com `desenhar(Graphics g)`.
-
-Exemplo conceitual:
-
-```java
-List<Entidade> entidades = new ArrayList<>();
-
-// A lista poderá armazenar instâncias de PacMan e Fantasma.
-
-for (Entidade entidade : entidades) {
-    entidade.mover();
-    entidade.desenhar(g);
-}
-```
-
-Embora as chamadas sejam feitas por meio do tipo `Entidade`, o comportamento executado dependerá do tipo real do objeto. Assim, o Pac-Man poderá responder aos comandos do jogador, enquanto os fantasmas executarão suas próprias estratégias. A renderização também poderá variar conforme o personagem.
-
-Esse modelo facilita a manutenção e a expansão do jogo, pois novas entidades poderão ser adicionadas sem exigir mudanças na estrutura geral do loop, desde que respeitem o contrato definido pela classe-base.
-
-## Arquitetura planejada
-
-A arquitetura inicial será dividida em componentes com responsabilidades bem definidas. A organização abaixo é uma proposta e poderá evoluir conforme as necessidades identificadas durante o desenvolvimento.
-
-### Labirinto com matriz bidimensional
-
-O cenário será representado por uma matriz 2D, na qual cada posição corresponderá a uma célula do labirinto. Os valores armazenados indicarão o conteúdo daquela célula, por exemplo:
-
-| Valor simbólico | Significado              |
-| --------------- | ------------------------ |
-| `PAREDE`        | Bloqueia a passagem      |
-| `VAZIO`         | Caminho livre            |
-| `PASTILHA`      | Item que pode ser coletado |
-| `POWER_UP`      | Item especial            |
-
-A matriz permitirá consultar posições, verificar colisões e identificar itens disponíveis. A movimentação dos personagens deverá considerar os limites do cenário e impedir que atravessem células bloqueadas.
-
-Uma representação inicial poderia utilizar constantes ou um `enum` para tornar os tipos de célula mais claros e evitar números mágicos espalhados pelo código.
-
-### Game Loop com Java Swing/AWT
-
-A execução será organizada em um Game Loop, responsável por manter o ciclo contínuo de atualização e desenho do jogo.
-
-De forma simplificada, cada ciclo deverá:
-
-1. Capturar e processar as entradas do jogador, como as teclas direcionais.
-2. Atualizar a lógica das entidades, incluindo movimentação e comportamento dos fantasmas.
-3. Verificar colisões com paredes, itens e personagens.
-4. Atualizar pontuação, vidas e demais condições da partida.
-5. Solicitar a renderização do cenário e dos personagens.
-
-O desenho poderá ser implementado em um componente Swing, como `JPanel`, sobrescrevendo `paintComponent(Graphics g)`. A atualização periódica poderá ser controlada por `javax.swing.Timer`, mantendo a interface responsiva e integrando o ciclo à infraestrutura de eventos do Swing.
-
-O AWT fornecerá recursos gráficos e de entrada, como `Graphics` e eventos de teclado. A implementação deverá evitar executar operações demoradas na Event Dispatch Thread (EDT), pois isso pode deixar a interface sem resposta.
-
-### Organização inicial de classes
-
-A estrutura abaixo é uma sugestão de organização, não uma definição final:
+## 📁 Estrutura de Pacotes e Classes
 
 ```text
 src/
-└── main/
-    └── java/
-        └── jogo/
-            ├── Main.java
-            ├── core/
-            │   └── GerenciadorJogo.java
-            ├── entidades/
-            │   ├── Entidade.java
-            │   ├── PacMan.java
-            │   └── Fantasma.java
-            ├── mapa/
-            │   └── Labirinto.java
-            └── ui/
-                └── TelaJogo.java
+└── jogo/
+    ├── Main.java                          # Ponto de entrada da aplicação
+    ├── audio/
+    │   └── GerenciadorSom.java            # Síntese e reprodução de áudio procedural
+    ├── core/
+    │   ├── GerenciadorJogo.java           # Orquestrador do estado, colisões e ciclo de jogo
+    │   └── HighScoreEntry.java            # Modelo e comparador de pontuações do ranking
+    ├── entidades/
+    │   ├── Direcao.java                   # Enum de vetores e rotações de movimento
+    │   ├── Entidade.java                  # Classe abstrata base (Abstração / Encapsulamento)
+    │   ├── Fantasma.java                  # Subclasse dos fantasmas e IA BFS (Herança / Polimorfismo)
+    │   └── PacMan.java                    # Subclasse do jogador e animações (Herança / Polimorfismo)
+    ├── mapa/
+    │   ├── Labirinto.java                 # Encapsulamento da matriz do mapa e renderização
+    │   └── TipoCelula.java                # Enum dos tipos e pontuações de células da grade
+    └── ui/
+        ├── TelaJogo.java                  # Painel gráfico Swing, HUD, menus e inputs
+        └── TextoPontuacaoFlutuante.java   # Efeito visual de pontuação ao devorar fantasmas
 ```
 
-### Responsabilidades previstas
+---
 
-| Classe            | Responsabilidade                                   |
-| ----------------- | -------------------------------------------------- |
-| `Main`            | Inicializar a aplicação                            |
-| `GerenciadorJogo` | Coordenar o estado e o fluxo da partida            |
-| `Entidade`        | Definir a estrutura comum das entidades            |
-| `PacMan`          | Implementar o personagem controlado pelo jogador   |
-| `Fantasma`        | Implementar os inimigos e seus comportamentos      |
-| `Labirinto`       | Armazenar e consultar a matriz do cenário          |
-| `TelaJogo`        | Exibir o jogo e receber entradas da interface      |
+## 🚀 Como Compilar e Executar
 
-## Tecnologias previstas
+### Pré-requisitos
+- **Java Development Kit (JDK) 17** ou superior instalado e configurado no PATH.
 
-- **Linguagem:** Java.
-- **Interface gráfica:** Java Swing.
-- **Recursos gráficos e eventos:** AWT.
-- **Paradigma principal:** Programação Orientada a Objetos.
-- **Representação do cenário:** matriz bidimensional.
+### 1. Compilar o Projeto
+Abra o terminal na raiz do projeto (`pacman_java`) e execute:
 
-Não estão definidos, neste estágio, frameworks externos, ferramentas de build ou versões específicas do Java. Essas escolhas poderão ser documentadas quando forem estabelecidas pela dupla.
+```bash
+# Criar diretório de saída dos binários
+mkdir bin
 
-## Status do projeto
+# Compilar todos os arquivos fonte Java
+javac -encoding UTF-8 -d bin src/jogo/*.java src/jogo/*/*.java
+```
 
-<sub>Em planejamento — arquitetura e responsabilidades iniciais em definição.</sub>
+### 2. Executar o Jogo
+Com os binários compilados na pasta `bin`, execute:
 
-As funcionalidades, regras do jogo, estrutura de pacotes e decisões de implementação serão detalhadas e atualizadas à medida que o projeto avançar.
+```bash
+java -cp bin jogo.Main
+```
 
-## Equipe
+---
 
-● Gustavo Henrique Gouveia Gomes
-● Nicolle Carolina da Rocha
+## 🕹️ Controles do Jogo
 
-<!-- Adicionar aqui os nomes dos integrantes, a disciplina, a instituição e o semestre, quando definidos. -->
+| Tecla / Ação | Função |
+| :--- | :--- |
+| **Setas Direcionais** ou **W, A, S, D** | Movimentar o Pac-Man (Cima, Baixo, Esquerda, Direita) |
+| **R** | Reiniciar a partida atual |
+| **P** | Pausar / Continuar o jogo |
+| **Botão Iniciar Jogo** | Confirma o nome do jogador e inicia a partida |
+| **Botão Resetar Ranking** | Zera a tabela de recordes persistida |
+
+---
+
+## 👥 Equipe de Desenvolvimento
+
+- **Gustavo Henrique Gouveia Gomes**
+- **Nicolle Carolina da Rocha**
