@@ -186,6 +186,20 @@ public class Fantasma extends Entidade {
             return;
         }
 
+        // Em modo assustado, o fantasma fica mais rápido para fugir:
+        // Executa 2 passos (4px) em quadros pares e 1 passo (2px) em quadros ímpares (média 3px/quadro).
+        // Cada passo mantém 2px para garantir a verificação contínua do alinhamento da grade (múltiplos de 28).
+        int totalPassos = 1;
+        if (assustado && !naJaula) {
+            totalPassos = (quadrosDecorridos % 2 == 0) ? 2 : 1;
+        }
+
+        for (int p = 0; p < totalPassos; p++) {
+            executarPasso();
+        }
+    }
+
+    private void executarPasso() {
         if (estaAlinhadoNaGrade()) {
             if (naJaula) {
                 executarSaidaDaJaula();
@@ -199,11 +213,6 @@ public class Fantasma extends Entidade {
         }
 
         if (direcaoAtual != Direcao.PARADO) {
-            // Em modo assustado, move apenas em quadros pares (50% da velocidade, mantendo passos de 2px pares)
-            if (assustado && (quadrosDecorridos % 2 != 0)) {
-                return;
-            }
-
             int proxX = getX() + direcaoAtual.getDx() * getVelocidade();
             int proxY = getY() + direcaoAtual.getDy() * getVelocidade();
 
@@ -277,6 +286,28 @@ public class Fantasma extends Entidade {
         }
 
         if (assustado) {
+            // Fuga inteligente: prefere direções que aumentam a distância em relação ao Pac-Man
+            if (alvoPacMan != null && random.nextDouble() < 0.75) {
+                int pacLinha = alvoPacMan.getLinhaCentro();
+                int pacColuna = alvoPacMan.getColunaCentro();
+                Direcao melhorFuga = opcoesValidas.get(0);
+                double maiorDistancia = -1;
+
+                for (Direcao dir : opcoesValidas) {
+                    int proxLinha = linhaAtual + dir.getDy();
+                    int proxColuna = (linhaAtual == 10 && proxLinha == 10)
+                        ? Math.floorMod(colunaAtual + dir.getDx(), Labirinto.COLUNAS)
+                        : colunaAtual + dir.getDx();
+
+                    double dist = Math.hypot(proxLinha - pacLinha, proxColuna - pacColuna);
+                    if (dist > maiorDistancia) {
+                        maiorDistancia = dist;
+                        melhorFuga = dir;
+                    }
+                }
+                direcaoAtual = melhorFuga;
+                return;
+            }
             direcaoAtual = opcoesValidas.get(random.nextInt(opcoesValidas.size()));
             return;
         }
@@ -457,9 +488,12 @@ public class Fantasma extends Entidade {
         String[] sprite = ((contadorAnimacaoSaia / 8) % 2 == 0) ? SPRITE_QUADRO_1 : SPRITE_QUADRO_2;
 
         Color corAtual = cor;
+        boolean modoAssustadoBranco = false;
+
         if (assustado) {
-            boolean piscar = (contadorAnimacaoSaia / 15) % 2 == 0;
-            corAtual = piscar ? Color.WHITE : new Color(33, 33, 255);
+            // Alterna rapidamente entre as cores azul e branca (a cada 6 quadros = 100ms)
+            modoAssustadoBranco = ((contadorAnimacaoSaia / 6) % 2 != 0);
+            corAtual = modoAssustadoBranco ? Color.WHITE : new Color(33, 33, 255);
         }
 
         g2d.setColor(corAtual);
@@ -473,7 +507,7 @@ public class Fantasma extends Entidade {
         }
 
         if (assustado) {
-            desenharRostoAssustado(g2d, baseX, baseY, p);
+            desenharRostoAssustado(g2d, baseX, baseY, p, modoAssustadoBranco);
         } else {
             int dirX = direcaoAtual.getDx();
             int dirY = direcaoAtual.getDy();
@@ -485,11 +519,28 @@ public class Fantasma extends Entidade {
         }
     }
 
-    private void desenharRostoAssustado(Graphics2D g2d, int baseX, int baseY, int p) {
-        g2d.setColor(new Color(255, 50, 50));
-        g2d.fillRect(baseX + 4 * p, baseY + 4 * p, 2 * p, 2 * p);
-        g2d.fillRect(baseX + 8 * p, baseY + 4 * p, 2 * p, 2 * p);
-        g2d.fillRect(baseX + 3 * p, baseY + 9 * p, 8 * p, p);
+    private void desenharRostoAssustado(Graphics2D g2d, int baseX, int baseY, int p, boolean modoBranco) {
+        // Modelo autêntico de Pixel-Art 14x14 do fantasma em modo fuga (arcade):
+        // No modo azul: olhos e boca zigue-zague na cor retrô pêssego/salmão
+        // No modo branco: olhos e boca zigue-zague na cor vermelha
+        Color corFace = modoBranco ? new Color(255, 30, 30) : new Color(254, 184, 174);
+        g2d.setColor(corFace);
+
+        // Olhos quadrados 2x2 (colunas 4-5 e 8-9, linhas 5-6)
+        g2d.fillRect(baseX + 4 * p, baseY + 5 * p, 2 * p, 2 * p);
+        g2d.fillRect(baseX + 8 * p, baseY + 5 * p, 2 * p, 2 * p);
+
+        // Boca ondulada zigue-zague autêntica (linhas 9 e 10)
+        // Linha superior da onda (linha 9: colunas 2-3, 6-7, 10-11)
+        g2d.fillRect(baseX + 2 * p, baseY + 9 * p, 2 * p, p);
+        g2d.fillRect(baseX + 6 * p, baseY + 9 * p, 2 * p, p);
+        g2d.fillRect(baseX + 10 * p, baseY + 9 * p, 2 * p, p);
+
+        // Linha inferior da onda (linha 10: colunas 1, 4-5, 8-9, 12)
+        g2d.fillRect(baseX + 1 * p, baseY + 10 * p, p, p);
+        g2d.fillRect(baseX + 4 * p, baseY + 10 * p, 2 * p, p);
+        g2d.fillRect(baseX + 8 * p, baseY + 10 * p, 2 * p, p);
+        g2d.fillRect(baseX + 12 * p, baseY + 10 * p, p, p);
     }
 
     private void desenharOlhoPixel(

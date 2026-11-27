@@ -30,7 +30,7 @@ public class GerenciadorJogo {
     private String nomeJogador = "";
 
     private int temporizadorModoAssustado = 0;
-    private static final int DURACAO_MODO_ASSUSTADO = 200; // ~3.3 segundos a 60 FPS
+    private static final int DURACAO_MODO_ASSUSTADO = 450; // ~7.5 segundos a 60 FPS
     private int fantasmasComidosSequencia = 0;
     private final List<TextoPontuacaoFlutuante> textosPontuacao = new ArrayList<>();
 
